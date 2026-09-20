@@ -1,11 +1,30 @@
-"""
-Compatibility re-export module for recognition-facing event models.
-Use `pianotutor.services.event_types` as the canonical definitions.
-"""
+"""The ``DetectedNoteEvent`` / ``DetectedChordEvent`` contracts, Recognition -> Practice."""
 
-from pianotutor.services.event_types import (  # noqa: F401
-    AudioFrameReady,
-    DetectedChordEvent,
-    DetectedNoteEvent,
-    NoteState,
-)
+from __future__ import annotations
+
+from dataclasses import dataclass
+from enum import Enum
+from typing import List, Optional
+
+
+class NoteState(str, Enum):
+    STARTED = "started"
+    SUSTAINED = "sustained"
+    RELEASED = "released"
+
+
+@dataclass(frozen=True)
+class DetectedNoteEvent:
+    pitch_midi: int
+    state: NoteState
+    t_ms: float
+    confidence: float
+    velocity_like: Optional[float] = None
+
+
+@dataclass(frozen=True)
+class DetectedChordEvent:
+    pitches_midi: List[int]
+    t_start_ms: float
+    t_end_ms: float
+    confidence: float
