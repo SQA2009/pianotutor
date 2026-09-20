@@ -19,6 +19,7 @@ from typing import Dict, Optional
 
 import numpy as np
 
+from pianotutor.audio.latency import compensate_timestamp
 from pianotutor.audio.monitor import SignalMonitor
 from pianotutor.audio.ring_buffer import RingBuffer
 from pianotutor.audio.stream import AudioFrameReady
@@ -64,6 +65,7 @@ class RecognitionAggregator:
         mono_clarity_threshold: float = 0.5,
         note_timeout_ms: float = 400.0,
         max_queue_size: int = 64,
+        latency_compensation_ms: float = 0.0,
     ):
         self._ring_buffer = ring_buffer
         self._event_bus = event_bus
@@ -72,6 +74,7 @@ class RecognitionAggregator:
         self._analysis_window_samples = max(1, int(sample_rate * analysis_window_ms / 1000.0))
         self._mono_clarity_threshold = mono_clarity_threshold
         self._note_timeout_ms = note_timeout_ms
+        self._latency_compensation_ms = latency_compensation_ms
 
         self._queue: "queue.Queue[AudioFrameReady]" = queue.Queue(maxsize=max_queue_size)
         self._onset_detector = OnsetDetector(sample_rate)
@@ -86,6 +89,9 @@ class RecognitionAggregator:
     @property
     def dropped_frame_count(self) -> int:
         return self._dropped_frames
+
+    def set_latency_compensation_ms(self, latency_ms: float) -> None:
+        self._latency_compensation_ms = latency_ms
 
     def start(self) -> None:
         self._running.set()
@@ -239,10 +245,11 @@ class RecognitionAggregator:
         confidence: float,
         velocity_like: Optional[float],
     ) -> None:
+        compensated_t_ms = compensate_timestamp(t_ms, self._latency_compensation_ms)
         event = DetectedNoteEvent(
             pitch_midi=pitch_midi,
             state=state,
-            t_ms=t_ms,
+            t_ms=compensated_t_ms,
             confidence=confidence,
             velocity_like=velocity_like,
         )
