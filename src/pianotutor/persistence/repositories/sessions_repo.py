@@ -23,6 +23,33 @@ class SessionsRepository:
         )
         return int(cur.lastrowid)
 
+    def update_progress(self, session_id: int, session: PracticeSessionRecord) -> None:
+        """Persist an intermediate loop pass's score/loop_count without finalizing
+        the session (``ended_at`` is left untouched — see :meth:`end_session`)."""
+        self._db.execute(
+            """
+            UPDATE practice_sessions
+            SET total_score = ?,
+                note_accuracy_score = ?,
+                chord_completeness_score = ?,
+                timing_score = ?,
+                consistency_score = ?,
+                loop_count = ?,
+                mastered = ?
+            WHERE id = ?
+            """,
+            (
+                session.total_score,
+                session.note_accuracy_score,
+                session.chord_completeness_score,
+                session.timing_score,
+                session.consistency_score,
+                session.loop_count,
+                int(session.mastered),
+                session_id,
+            ),
+        )
+
     def end_session(self, session_id: int, session: PracticeSessionRecord) -> None:
         self._db.execute(
             """
