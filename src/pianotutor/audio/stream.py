@@ -67,6 +67,10 @@ class AudioStream:
     def is_running(self) -> bool:
         return self._running.is_set()
 
+    @property
+    def device_index(self) -> int:
+        return self._device_index
+
     def start(self) -> None:
         try:
             import sounddevice as sd
