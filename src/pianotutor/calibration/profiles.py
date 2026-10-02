@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 
 from pianotutor.persistence.models import CalibrationProfileRecord
 
@@ -30,7 +30,7 @@ class CalibrationProfile:
             recommended_onset_threshold=self.recommended_onset_threshold,
             sample_count=self.sample_count,
             is_active=is_active,
-            created_at=self.created_at or datetime.utcnow().isoformat(),
+            created_at=self.created_at or datetime.now(timezone.utc).isoformat(),
         )
 
     @classmethod
