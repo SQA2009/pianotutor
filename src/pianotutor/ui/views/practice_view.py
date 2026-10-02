@@ -77,15 +77,20 @@ class PracticeView(QWidget):
 
         self._title_label = QLabel("No song loaded")
         self._title_label.setProperty("role", "heading")
+        self._hint_label = QLabel("Select a song in Home, then start a practice pass here.")
+        self._hint_label.setProperty("role", "subheading")
 
         self._section_combo = QComboBox()
+        self._section_combo.setEnabled(False)
         self._mode_combo = QComboBox()
         self._mode_combo.addItem("Guided (wait for me)", PracticeMode.GUIDED)
         self._mode_combo.addItem("Continuous (play along)", PracticeMode.CONTINUOUS)
+        self._mode_combo.setEnabled(False)
 
         self._start_button = QPushButton("Start")
         self._start_button.setProperty("role", "primary")
         self._start_button.clicked.connect(self._on_start_clicked)
+        self._start_button.setEnabled(False)
         self._stop_button = QPushButton("Stop")
         self._stop_button.clicked.connect(self._on_stop_clicked)
         self._stop_button.setEnabled(False)
@@ -124,6 +129,7 @@ class PracticeView(QWidget):
 
         layout = QVBoxLayout(self)
         layout.addLayout(top_row)
+        layout.addWidget(self._hint_label)
         layout.addLayout(controls)
         layout.addWidget(self._piano_roll, 1)
         layout.addWidget(self._piano)
@@ -158,6 +164,10 @@ class PracticeView(QWidget):
         self._feedback_list.clear()
         self._score_bar.setValue(0)
         self._mastery_label.setText("")
+        self._hint_label.setText("Choose section and mode, then press Start.")
+        self._start_button.setEnabled(bool(self._sections))
+        self._section_combo.setEnabled(True)
+        self._mode_combo.setEnabled(True)
 
     # --- Transport ----------------------------------------------------------------
     def _on_start_clicked(self) -> None:
@@ -187,6 +197,7 @@ class PracticeView(QWidget):
         self._stop_button.setEnabled(True)
         self._section_combo.setEnabled(False)
         self._mode_combo.setEnabled(False)
+        self._hint_label.setText("Listening... play the highlighted notes as they reach the hit line.")
 
     def _on_stop_clicked(self) -> None:
         self._stop_practice(user_initiated=True)
@@ -194,10 +205,12 @@ class PracticeView(QWidget):
     def _stop_practice(self, user_initiated: bool) -> None:
         self._timer.stop()
         self._app.stop_practice_session()
-        self._start_button.setEnabled(True)
+        self._start_button.setEnabled(self._song is not None and bool(self._sections))
         self._stop_button.setEnabled(False)
-        self._section_combo.setEnabled(True)
-        self._mode_combo.setEnabled(True)
+        self._section_combo.setEnabled(self._song is not None)
+        self._mode_combo.setEnabled(self._song is not None)
+        if user_initiated:
+            self._hint_label.setText("Practice paused. Adjust settings and start again when ready.")
 
     def _on_tick(self) -> None:
         engine = self._app.practice_engine
@@ -270,6 +283,7 @@ class PracticeView(QWidget):
             + (" · Mastered!" if result.mastery.mastered else "")
         )
         if result.mastery.mastered:
+            self._hint_label.setText("Excellent — excerpt mastered. Select another section or song.")
             self._stop_practice(user_initiated=False)
 
     def _on_stream_error(self, message: str) -> None:

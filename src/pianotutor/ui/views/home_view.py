@@ -4,9 +4,12 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from pathlib import Path
+
 from PySide6.QtCore import Signal
 from PySide6.QtWidgets import (
     QFileDialog,
+    QFrame,
     QHBoxLayout,
     QLabel,
     QListWidget,
@@ -33,8 +36,28 @@ class HomeView(QWidget):
 
         heading = QLabel("Song Library")
         heading.setProperty("role", "heading")
+        subtitle = QLabel("Import MIDI files, then launch practice sessions from your library.")
+        subtitle.setProperty("role", "subheading")
 
         self._songs_list = QListWidget()
+        self._songs_list.currentItemChanged.connect(self._on_song_selection_changed)
+        self._songs_list.itemDoubleClicked.connect(lambda _item: self._on_start_practice_clicked())
+
+        self._empty_state_label = QLabel(
+            "No songs yet. Use “Import MIDI” to add your first piece."
+        )
+        self._empty_state_label.setProperty("role", "hint")
+
+        self._song_details_label = QLabel("Select a song to see details.")
+        self._song_details_label.setProperty("role", "hint")
+        self._song_details_label.setWordWrap(True)
+        self._song_details_label.setMinimumHeight(44)
+
+        details_frame = QFrame()
+        details_layout = QVBoxLayout(details_frame)
+        details_layout.setContentsMargins(10, 10, 10, 10)
+        details_layout.addWidget(self._song_details_label)
+        details_layout.addWidget(self._empty_state_label)
 
         import_button = QPushButton("Import MIDI")
         import_button.setProperty("role", "primary")
@@ -54,7 +77,9 @@ class HomeView(QWidget):
 
         layout = QVBoxLayout(self)
         layout.addWidget(heading)
+        layout.addWidget(subtitle)
         layout.addWidget(self._songs_list, 1)
+        layout.addWidget(details_frame)
         layout.addLayout(button_row)
 
         self.refresh()
@@ -72,6 +97,9 @@ class HomeView(QWidget):
                 self._songs_list.setCurrentItem(item)
 
         self._practice_button.setEnabled(self._songs_list.count() > 0)
+        if self._songs_list.currentItem() is None and self._songs_list.count() > 0:
+            self._songs_list.setCurrentRow(0)
+        self._update_details_panel()
 
     def _selected_song_id(self) -> int | None:
         current = self._songs_list.currentItem()
@@ -90,7 +118,7 @@ class HomeView(QWidget):
             return
 
         try:
-            self._app.import_song(path)
+            imported = self._app.import_song(path)
         except MidiParseError as exc:
             QMessageBox.warning(self, "Import failed", str(exc))
             return
@@ -99,6 +127,11 @@ class HomeView(QWidget):
             return
 
         self.refresh()
+        QMessageBox.information(
+            self,
+            "Song imported",
+            f"Imported “{imported.title}” with {len(imported.sections)} section(s).",
+        )
 
     def _on_start_practice_clicked(self) -> None:
         song_id = self._selected_song_id()
@@ -106,3 +139,30 @@ class HomeView(QWidget):
             QMessageBox.information(self, "No song selected", "Please select a song first.")
             return
         self.practice_requested.emit(int(song_id))
+
+    def _on_song_selection_changed(self, _current, _previous) -> None:
+        self._update_details_panel()
+
+    def _update_details_panel(self) -> None:
+        song_id = self._selected_song_id()
+        has_songs = self._songs_list.count() > 0
+        self._empty_state_label.setVisible(not has_songs)
+        self._practice_button.setEnabled(song_id is not None)
+
+        if song_id is None:
+            self._song_details_label.setText("Select a song to see details.")
+            return
+
+        song = self._app.songs_repo.get_song(int(song_id))
+        sections = self._app.songs_repo.get_sections(int(song_id))
+        notes = self._app.songs_repo.get_notes(int(song_id))
+        if song is None:
+            self._song_details_label.setText("Selected song details are unavailable.")
+            return
+
+        source_name = Path(song.source_path).name
+        duration_seconds = int(song.duration_ms // 1000)
+        mins, secs = divmod(duration_seconds, 60)
+        self._song_details_label.setText(
+            f"{source_name} · {mins}:{secs:02d} · {len(notes)} notes · {len(sections)} sections"
+        )

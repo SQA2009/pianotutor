@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from PySide6.QtWidgets import QMainWindow, QTabWidget
+from PySide6.QtWidgets import QMainWindow, QStatusBar, QTabWidget
 
 from pianotutor.ui.views.calibration_view import CalibrationView
 from pianotutor.ui.views.home_view import HomeView
@@ -29,6 +29,9 @@ class MainWindow(QMainWindow):
 
         self._tabs = QTabWidget()
         self.setCentralWidget(self._tabs)
+        self._status = QStatusBar()
+        self.setStatusBar(self._status)
+        self._status.showMessage("Ready")
 
         self._home_view = HomeView(app)
         self._practice_view = PracticeView(app)
@@ -48,15 +51,23 @@ class MainWindow(QMainWindow):
     def _on_practice_requested(self, song_id: int) -> None:
         self._practice_view.load_song(song_id)
         self._tabs.setCurrentIndex(TAB_PRACTICE)
+        self._status.showMessage("Practice loaded", 3000)
 
     def _on_calibration_finished(self) -> None:
         self._tabs.setCurrentIndex(TAB_HOME)
+        self._status.showMessage("Calibration complete", 4000)
 
     def _on_tab_changed(self, index: int) -> None:
         if index == TAB_HOME:
             self._home_view.refresh()
+            self._status.showMessage("Library", 1500)
+        elif index == TAB_PRACTICE:
+            self._status.showMessage("Practice", 1500)
+        elif index == TAB_CALIBRATION:
+            self._status.showMessage("Calibration", 1500)
         elif index == TAB_PROGRESS:
             self._progress_view.refresh()
+            self._status.showMessage("Progress", 1500)
 
     def closeEvent(self, event) -> None:  # noqa: N802 - Qt override signature
         self._app.shutdown()
